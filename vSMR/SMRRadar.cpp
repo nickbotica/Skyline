@@ -2220,18 +2220,9 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 		// Drawing the tag text
 
-		SolidBrush FontColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["text_color"])));
-		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
+		SolidBrush FontColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["text_color"])));
+		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
 		SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
-		SolidBrush GroundPushColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["push"])));
-		SolidBrush GroundTaxiColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
-		SolidBrush GroundDepaColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
-
 
 		// Drawing the leader line
 		RECT TagBackRectData = TagBackgroundRect;
@@ -2292,14 +2283,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 				if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
 					color = &RimcasTextColor;
-
-				// Ground tag colors
-				if (strcmp(element.c_str(), "PUSH") == 0)
-					color = &GroundPushColor;
-				if (strcmp(element.c_str(), "TAXI") == 0)
-					color = &GroundTaxiColor;
-				if (strcmp(element.c_str(), "DEPA") == 0)
-					color = &GroundDepaColor;
 
 				RectF mRect(0, 0, 0, 0);
 
