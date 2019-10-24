@@ -1328,151 +1328,21 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	// Tag items available
 	// callsign: Callsign with freq state and comm *
 	// actype: Aircraft type *
-	// sctype: Aircraft type that changes for squawk error *
-	// sqerror: Squawk error if there is one, or empty *
-	// deprwy: Departure runway *
-	// seprwy: Departure runway that changes to speed if speed > 25kts *
-	// gate: Gate, from speed or scratchpad *
-	// sate: Gate, from speed or scratchpad that changes to speed if speed > 25kts *
 	// flightlevel: Flightlevel/Pressure altitude of the ac *
 	// gs: Ground speed of the ac *
-	// tendency: Climbing or descending symbol *
+	// vsi: Climbing or descending symbol *
 	// wake: Wake turbulance cat *
 	// ssr: the current squawk of the ac
-	// dep: the assigned SID
-	// sdep: a short version of the SID
 	// ----
+
+	//UncorrelatedAC
+	//UncorrelatedS
+	//CorrelatedAC
+	//CorrelatedS
 
 	bool IsPrimary = !rt.GetPosition().GetTransponderC();
 	bool isAirborne = rt.GetPosition().GetReportedGS() > 50;
 
-	// ----- Callsign -------
-	string callsign = rt.GetCallsign();
-	if (fp.IsValid()) {
-		if (fp.GetControllerAssignedData().GetCommunicationType() == 't' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'T' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'r' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'R' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'v' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'V')
-		{
-			if (fp.GetControllerAssignedData().GetCommunicationType() != 'v' &&
-				fp.GetControllerAssignedData().GetCommunicationType() != 'V') {
-				callsign.append("/");
-				callsign += fp.GetControllerAssignedData().GetCommunicationType();
-			}
-		}
-		else if (fp.GetFlightPlanData().GetCommunicationType() == 't' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'r' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'T' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'R')
-		{
-			callsign.append("/");
-			callsign += fp.GetFlightPlanData().GetCommunicationType();
-		}
-
-		switch (fp.GetState()) {
-
-		case FLIGHT_PLAN_STATE_TRANSFER_TO_ME_INITIATED:
-			callsign = ">>" + callsign;
-			break;
-
-		case FLIGHT_PLAN_STATE_TRANSFER_FROM_ME_INITIATED:
-			callsign = callsign + ">>";
-			break;
-
-		}
-	}
-
-	// ----- Squawn error -------
-	string sqerror = "";
-	const char * assr = fp.GetControllerAssignedData().GetSquawk();
-	const char * ssr = rt.GetPosition().GetSquawk();
-	bool has_squawk_error = false;
-	if (strlen(assr) != 0 && !startsWith(ssr, assr)) {
-		has_squawk_error = true;
-		sqerror = "A";
-		sqerror.append(assr);
-	}
-
-	// ----- Aircraft type -------
-
-	string actype = "NoFPL";
-	if (fp.IsValid() && fp.GetFlightPlanData().IsReceived())
-		actype = fp.GetFlightPlanData().GetAircraftFPType();
-	if (actype.size() > 4 && actype != "NoFPL")
-		actype = actype.substr(0, 4);
-
-	// ----- Aircraft type that changes to squawk error -------
-	string sctype = actype;
-	if (has_squawk_error)
-		sctype = sqerror;
-
-	// ----- Groundspeed -------
-	string speed = std::to_string(rt.GetPosition().GetReportedGS());
-
-	// ----- Departure runway -------
-	string deprwy = fp.GetFlightPlanData().GetDepartureRwy();
-	if (deprwy.length() == 0)
-		deprwy = "RWY";
-
-	// ----- Departure runway that changes for overspeed -------
-	string seprwy = deprwy;
-	if (rt.GetPosition().GetReportedGS() > 25)
-		seprwy = std::to_string(rt.GetPosition().GetReportedGS());
-
-	// ----- Gate -------
-	string gate;
-	if (useSpeedForGates)
-		gate = std::to_string(fp.GetControllerAssignedData().GetAssignedSpeed());
-	else
-		gate = fp.GetControllerAssignedData().GetScratchPadString();
-
-	gate = gate.substr(0, 4);
-
-	// If there is a vStrips gate, we use that
-	if (vStripsStands.find(rt.GetCallsign()) != vStripsStands.end())
-	{
-		gate = vStripsStands[rt.GetCallsign()];
-	}
-
-	if (gate.size() == 0 || gate == "0" || !isAcCorrelated)
-		gate = "NoGATE";
-
-	// ----- Gate that changes to speed -------
-	string sate = gate;
-	if (rt.GetPosition().GetReportedGS() > 25)
-		sate = speed;
-
-	// ----- Flightlevel -------
-	int fl = rt.GetPosition().GetFlightLevel();
-	int padding = 5;
-	string pfls = "";
-	if (fl <= TransitionAltitude) {
-		fl = rt.GetPosition().GetPressureAltitude();
-		pfls = "A";
-		padding = 4;
-	}
-	string flightlevel = (pfls + padWithZeros(padding, fl)).substr(0, 3);
-
-	// ----- Tendency -------
-	string tendency = "-";
-	int delta_fl = rt.GetPosition().GetFlightLevel() - rt.GetPreviousPosition(rt.GetPosition()).GetFlightLevel();
-	if (abs(delta_fl) >= 50) {
-		if (delta_fl < 0) {
-			tendency = "|";
-		}
-		else {
-			tendency = "^";
-		}
-	}
-
-	// ----- Wake cat -------
-	string wake = "?";
-	if (fp.IsValid() && isAcCorrelated) {
-		wake = "";
-		wake += fp.GetFlightPlanData().GetAircraftWtc();
-	}
 
 	// ----- SSR -------
 	string tssr = "";
@@ -1481,25 +1351,127 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 		tssr = rt.GetPosition().GetSquawk();
 	}
 
-	// ----- DEP -------
-	string dep = "SID";
+	// ----- Callsign -------
+	string callsign = rt.GetCallsign();
+
+	// ----- Wake category -------
+	string wake = "?";
+	if (fp.IsValid() && isAcCorrelated) {
+		wake = "";
+		wake += fp.GetFlightPlanData().GetAircraftWtc();
+	}
+
+	// ----- Aircraft type -------
+
+	string actype = "    ";
+	if (fp.IsValid() && fp.GetFlightPlanData().IsReceived())
+	{
+		actype = fp.GetFlightPlanData().GetAircraftFPType();
+		actype = actype.substr(0, 4);
+	}
+
+	// ----- Flightlevel -------
+
+	// Transition altitude is 13000 ft
+	// A switchs for F >=140
+	// Transition level is 15,000 ft
+
+	int fl = rt.GetPosition().GetFlightLevel();
+	int padding = 5;
+	string pfls = "F";
+	if (fl <= 14000) {
+		fl = rt.GetPosition().GetPressureAltitude();
+		pfls = "A";
+		padding = 5;
+	}
+	string flightlevel = (pfls + padWithZeros(padding, fl)).substr(0, 4);
+
+	// ----- Vertical speed indicator -------
+	string vsi = " ";
+	int delta_fl = rt.GetPosition().GetFlightLevel() - rt.GetPreviousPosition(rt.GetPosition()).GetFlightLevel();
+	if (abs(delta_fl) >= 50) {
+		if (delta_fl < 0) {
+			vsi = "|";
+		}
+		else {
+			vsi = "^";
+		}
+	}
+
+	// ----- Temp Altitude -----
+	//TODO: not sure this is efficient
+	string tempAlt;
+
+	if (fp.IsValid() && isAcCorrelated) {
+
+		int clearedAlt = fp.GetControllerAssignedData().GetClearedAltitude();
+
+		// no temp alt set display FP final alt
+		if (clearedAlt <= 0)
+		{
+			int fa = fp.GetFinalAltitude();
+			tempAlt = padWithZeros(5, fp.GetFinalAltitude()).substr(0, 3);
+		}
+		// if cleared for instrument approach
+		if (clearedAlt == 1)
+		{
+			tempAlt = "APP";
+		}
+		// if cleared visual approach
+		else if (clearedAlt == 2)
+		{
+			tempAlt = "VIS";
+		}
+		// if a cleared altitude is set display it
+		else if (clearedAlt > 2)
+		{
+			tempAlt = padWithZeros(5, (clearedAlt / 100)).substr(0, 3);
+		}
+
+		// if aircraft is cruising at final altitude +-50ft display nothing
+		if ((rt.GetPosition().GetFlightLevel() >= fp.GetFinalAltitude() - 50) &&
+			(rt.GetPosition().GetFlightLevel() < fp.GetFinalAltitude() + 50))
+		{
+			tempAlt = "   ";
+		}
+	}
+
+	// ----- Groundspeed -------
+	string speed = std::to_string(rt.GetPosition().GetReportedGS());
+
+	// ----- Controller ID -------
+	string controller = "";
 	if (fp.IsValid() && isAcCorrelated)
 	{
-		dep = fp.GetFlightPlanData().GetSidName();
+		controller = fp.GetTrackingControllerId();
 	}
 
-	// ----- Short DEP -------
-	string sdep = dep;
-	if (fp.IsValid() && sdep.size() > 5 && isAcCorrelated)
+	// ----- Destination -------
+	string dest = "    ";
+	if (fp.IsValid() && isAcCorrelated)
 	{
-		sdep = dep.substr(0, 3);
-		sdep += dep.substr(dep.size() - 2, dep.size());
+		dest = fp.GetFlightPlanData().GetDestination();
 	}
 
-	// ----- GSTAT -------
-	string gstat = "";
-	if (fp.IsValid() && isAcCorrelated) {
-		gstat = fp.GetGroundState();
+	// ----- Assigned Squawk -------
+	string assr = "    ";
+	if (fp.IsValid() && isAcCorrelated)
+	{
+		assr = fp.GetControllerAssignedData().GetSquawk();
+	}
+
+	// ----- Scratchpad -------
+	string scratchpad = "";
+	if (fp.IsValid() && isAcCorrelated)
+	{
+		scratchpad = fp.GetControllerAssignedData().GetScratchPadString();
+	}
+
+	// ----- STAR -------
+	string star = "       ";
+	if ((rt.GetPosition().GetPressureAltitude() > 4000) && fp.IsValid() && isAcCorrelated)
+	{
+		star = fp.GetFlightPlanData().GetStarName();
 	}
 
 	// ----- Generating the replacing map -----
@@ -1509,6 +1481,7 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	TagReplacingMap["systemid"] = "T:";
 	string tpss = rt.GetSystemID();
 	TagReplacingMap["systemid"].append(tpss.substr(1, 6));
+
 
 	// Pro mode data here
 	if (isProMode)
@@ -1529,7 +1502,7 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 		if (isAirborne && !isAcCorrelated && IsPrimary)
 		{
 			flightlevel = "NoALT";
-			tendency = "?";
+			vsi = "?";
 			speed = std::to_string(rt.GetGS());
 		}
 
@@ -1539,22 +1512,19 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 		}
 	}
 
-	TagReplacingMap["callsign"] = callsign;
-	TagReplacingMap["actype"] = actype;
-	TagReplacingMap["sctype"] = sctype;
-	TagReplacingMap["sqerror"] = sqerror;
-	TagReplacingMap["deprwy"] = deprwy;
-	TagReplacingMap["seprwy"] = seprwy;
-	TagReplacingMap["gate"] = gate;
-	TagReplacingMap["sate"] = sate;
-	TagReplacingMap["flightlevel"] = flightlevel;
-	TagReplacingMap["gs"] = speed;
-	TagReplacingMap["tendency"] = tendency;
-	TagReplacingMap["wake"] = wake;
 	TagReplacingMap["ssr"] = tssr;
-	TagReplacingMap["asid"] = dep;
-	TagReplacingMap["ssid"] = sdep;
-	TagReplacingMap["groundstatus"] = gstat;
+	TagReplacingMap["callsign"] = callsign;
+	TagReplacingMap["wake"] = wake;
+	TagReplacingMap["actype"] = actype;
+	TagReplacingMap["flightlevel"] = flightlevel;
+	TagReplacingMap["vsi"] = vsi;
+	TagReplacingMap["tempalt"] = tempAlt;
+	TagReplacingMap["gs"] = speed;
+	TagReplacingMap["controller"] = controller;
+	TagReplacingMap["dest"] = dest;
+	TagReplacingMap["assr"] = assr;
+	TagReplacingMap["scratchpad"] = scratchpad;
+	TagReplacingMap["star"] = star;
 
 	return TagReplacingMap;
 }
@@ -1680,6 +1650,11 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
+
+	graphics.SetTextRenderingHint(TextRenderingHintSingleBitPerPixel);
+
+
+
 	RECT RadarArea = GetRadarArea();
 	RECT ChatArea = GetChatArea();
 	RadarArea.bottom = ChatArea.top;
@@ -1708,6 +1683,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		R.NormalizeRect();
 		AddScreenObject(DRAWING_BACKGROUND_CLICK, "", R, false, "");
 	}
+
+#pragma region RIMCAS
 
 	Logger::info("Runway loop");
 	CSectorElement rwy;
@@ -1833,13 +1810,13 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	RimcasInstance->OnRefreshBegin(isLVP);
 
-#pragma region symbols
+#pragma endregion
+
+#pragma region Symbols
 	// Drawing the symbols
 	Logger::info("Symbols loop");
 	EuroScopePlugIn::CRadarTarget rt;
-	for (rt = GetPlugIn()->RadarTargetSelectFirst();
-		rt.IsValid();
-		rt = GetPlugIn()->RadarTargetSelectNext(rt))
+	for (rt = GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid(); rt = GetPlugIn()->RadarTargetSelectNext(rt))
 	{
 		if (!rt.IsValid() || !rt.GetPosition().IsValid())
 			continue;
@@ -2124,7 +2101,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		TagClickableMap[TagReplacingMap["sate"]] = TAG_CITEM_GATE;
 		TagClickableMap[TagReplacingMap["flightlevel"]] = TAG_CITEM_NO;
 		TagClickableMap[TagReplacingMap["gs"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["tendency"]] = TAG_CITEM_NO;
+		TagClickableMap[TagReplacingMap["vsi"]] = TAG_CITEM_NO;
 		TagClickableMap[TagReplacingMap["wake"]] = TAG_CITEM_FPBOX;
 		TagClickableMap[TagReplacingMap["tssr"]] = TAG_CITEM_NO;
 		TagClickableMap[TagReplacingMap["asid"]] = TagClickableMap[TagReplacingMap["ssid"]] = TAG_CITEM_SID;
