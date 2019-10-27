@@ -259,7 +259,26 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 		}
 	}
 
-	// ReSharper restore CppZeroConstantCanBeReplacedWithNullptr
+	/*
+	CSectorElement radar;
+	for (radar = GetPlugIn()->SectorFileElementSelectFirst(SECTOR_ELEMENT_RADARS);
+		radar.IsValid();
+		radar = GetPlugIn()->SectorFileElementSelectNext(radar, SECTOR_ELEMENT_RADARS))
+	{
+		CPosition radarPos;
+		CPosition radarPos1;
+
+		auto compName = radar.GetComponentName(0);
+		auto compName1 = radar.GetComponentName(1);
+		auto compName2 = radar.GetComponentName(2);
+		auto name = radar.GetName();
+		radar.GetPosition(&radarPos, 0);
+		radar.GetPosition(&radarPos1, 1);
+		auto active = radar.IsElementActive(0);
+		auto active1 = radar.IsElementActive(1);
+		auto temp = "temp";
+	}
+	*/
 }
 
 void CSMRRadar::OnAsrContentToBeSaved()
@@ -1139,10 +1158,6 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 
 	CRadarTargetPositionData RtPos = RadarTarget.GetPosition();
 
-	Patatoides[RadarTarget.GetCallsign()].History_three_points = Patatoides[RadarTarget.GetCallsign()].History_two_points;
-	Patatoides[RadarTarget.GetCallsign()].History_two_points = Patatoides[RadarTarget.GetCallsign()].History_one_points;
-	Patatoides[RadarTarget.GetCallsign()].History_one_points = Patatoides[RadarTarget.GetCallsign()].points;
-
 	Patatoides[RadarTarget.GetCallsign()].points.clear();
 
 	CFlightPlan fp = GetPlugIn()->FlightPlanSelect(RadarTarget.GetCallsign());
@@ -1820,7 +1835,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	// Drawing the symbols
 	Logger::info("Symbols loop");
 
-	Symbol::render(dc, graphics, this);
+	Symbol::render(dc, &graphics, this);
 
 
 #pragma endregion Drawing of the symbols

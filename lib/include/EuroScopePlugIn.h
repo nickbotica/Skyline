@@ -2285,53 +2285,42 @@ private:
 
 public:
 
-    //---CRadarTarget--------------------------------------------------
-
     inline  CRadarTarget ( void )
     {
         m_RtPosition = NULL ;
     } ;
 
 
-    //---IsValid-------------------------------------------------------
-
-    inline  bool    IsValid ( void ) const
+	//-----------------------------------------------------------------
+	//  Return :
+	//      true    - if the AC reference is valid
+	//      false   - else
+	//
+	//  Description :
+	//      It tests if the AC reference is valid.
+	//-----------------------------------------------------------------
+    inline  bool IsValid ( void ) const
     {
         return m_RtPosition != NULL ;
     } ;
-    //-----------------------------------------------------------------
-    //  Return :
-    //      true    - if the AC reference is valid
-    //      false   - else
-    //
-    //  Description :
-    //      It tests if the AC reference is valid.
-    //-----------------------------------------------------------------
 
 
-    //---GetCallsign---------------------------------------------------
-
+	//-----------------------------------------------------------------
+	//  Return :
+	//      The callsign of the AC.
+	//-----------------------------------------------------------------
     const char * GetCallsign ( void ) const ;
-    //-----------------------------------------------------------------
-    //  Return :
-    //      The callsign of the AC.
-    //-----------------------------------------------------------------
+    
 
-
-    //---GetSystemID---------------------------------------------------
-
-    const char * GetSystemID ( void ) const ;
     //-----------------------------------------------------------------
     //  Return :
     //      The system assigned ID to the radar target. It is surely the
     //      same on all instances - as the code itself is generated from
     //      the callsign.
     //-----------------------------------------------------------------
+    const char * GetSystemID ( void ) const ;
 
 
-    //---GetVerticalSpeed----------------------------------------------
-
-    int     GetVerticalSpeed ( void ) const ;
     //-----------------------------------------------------------------
     //  Return :
     //      The calculated vertical speed of the selected AC in feet/minute.
@@ -2339,6 +2328,7 @@ public:
     //          protocol. Use only for climb/descend/level test
     //      0   - else
     //-----------------------------------------------------------------
+    int     GetVerticalSpeed ( void ) const ;
 
 
     //---GetTrackHeading-----------------------------------------------
@@ -2744,13 +2734,6 @@ public:
     //-----------------------------------------------------------------
 
 
-    //---AddScreenObject-----------------------------------------------
-
-    void    AddScreenObject ( int ObjectType,
-                              const char * sObjectId,
-                              RECT Area,
-                              bool Moveable,
-                              const char * sMessage ) ;
     //-----------------------------------------------------------------
     //  Parameters :
     //      =>  ObjectType  - the type of the object (depends on the plugin)
@@ -2768,7 +2751,11 @@ public:
     //      elements. Call this function from the OnRefresh function
     //      only. The object list is cleared before the next refresh.
     //-----------------------------------------------------------------
-
+    void    AddScreenObject ( int ObjectType,
+                              const char * sObjectId,
+                              RECT Area,
+                              bool Moveable,
+                              const char * sMessage ) ;
 
     //---RequestRefresh------------------------------------------------
 

@@ -344,10 +344,10 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 		// Predicted Track Line
 		// It starts 10 seconds away from the ac
-		double d = double(rt.GetPosition().GetReportedGS()*0.514444)*10;
+		double d = double(rt.GetPosition().GetReportedGS()* KNOT_TO_MS)*10;
 		CPosition AwayBase = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
 
-		d = double(rt.GetPosition().GetReportedGS()*0.514444) * (radar_screen->PredictedLenght * 60)-10;
+		d = double(rt.GetPosition().GetReportedGS()* KNOT_TO_MS) * (radar_screen->PredictedLenght * 60)-10;
 		CPosition PredictedEnd = BetterHarversine(AwayBase, rt.GetTrackHeading(), d);
 
 		POINT liangOne, liangTwo;

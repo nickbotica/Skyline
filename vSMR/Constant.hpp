@@ -23,6 +23,8 @@ const int TAG_FUNC_DATALINK_STBY = 546;
 const int TAG_FUNC_DATALINK_VOICE = 547;
 const int TAG_FUNC_DATALINK_RESET = 548;
 
+// Mnots to Meters per Second
+const double KNOT_TO_MS = 0.514444;
 
 
 inline static bool startsWith(const char *pre, const char *str)
@@ -242,6 +244,8 @@ inline static double RadToDeg(double x)
 	return x / M_PI * 180.0;
 };
 
+
+//The haversine formula determines the great-circle distance between two points on a sphere given their longitudes and latitudes.
 inline static CPosition BetterHarversine(CPosition init, double angle, double meters)
 {
 	CPosition newPos;

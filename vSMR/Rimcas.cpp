@@ -117,7 +117,7 @@ string CRimcas::GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, b
 
 		for (int t = 5; t <= 300; t+= 5)
 		{
-			double distance = Ac.GetPosition().GetReportedGS()*0.514444*t;
+			double distance = Ac.GetPosition().GetReportedGS()* KNOT_TO_MS *t;
 
 			// We tolerate up 2 degree variations to the runway at long range (> 120 s)
 			// And 3 degrees after (<= 120 t)

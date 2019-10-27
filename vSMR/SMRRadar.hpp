@@ -71,12 +71,11 @@ public:
 
 	struct Patatoide_Points {
 		map<int, POINT2> points;
-		map<int, POINT2> History_one_points;
-		map<int, POINT2> History_two_points;
-		map<int, POINT2> History_three_points;
 	};
 
 	map<const char *, Patatoide_Points> Patatoides;
+
+
 
 	map<string, bool> ClosedRunway;
 
@@ -304,6 +303,13 @@ public:
 		newPos.m_Longitude = RadToDeg(lon);
 
 		return newPos;
+	}
+
+	// Returns a gdiplus point from a CPosition
+	inline virtual Point GetPoint(CPosition pos)
+	{
+		POINT p = ConvertCoordFromPositionToPixel(pos);
+		return Point(p.x, p.y);
 	}
 
 	inline virtual float randomizeHeading(float originHead) {
