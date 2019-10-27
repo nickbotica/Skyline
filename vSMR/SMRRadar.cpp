@@ -1,6 +1,9 @@
 #include "stdafx.h"
 #include "Resource.h"
 #include "SMRRadar.hpp"
+#include "Symbol.h"
+
+using namespace EuroScopePlugIn;
 
 ULONG_PTR m_gdiplusToken;
 CPoint mouseLocation(0, 0);
@@ -653,7 +656,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		GetPlugIn()->SetASELAircraft(GetPlugIn()->FlightPlanSelect(sObjectId));  // make sure the correct aircraft is selected before calling 'StartTagFunction'
 		
 		if (rt.GetCorrelatedFlightPlan().IsValid()) {
-			StartTagFunction(rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_TYPE_CALLSIGN, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_NO, Pt, Area);
+			StartTagFunction(rt.GetCallsign(), NULL, TAG_ITEM_TYPE_CALLSIGN, rt.GetCallsign(), NULL, TAG_ITEM_FUNCTION_NO, Pt, Area);
 		}		
 
 		// Release & correlate actions
@@ -803,40 +806,40 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 
 		switch (ObjectType) {
 		case TAG_CITEM_CALLSIGN:
-			if (Button == EuroScopePlugIn::BUTTON_LEFT || Button == EuroScopePlugIn::BUTTON_MIDDLE)
-				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_CALLSIGN, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_HANDOFF_POPUP_MENU, Pt, Area);
-			else if (Button == EuroScopePlugIn::BUTTON_RIGHT)
-				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_CALLSIGN, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_COMMUNICATION_POPUP, Pt, Area);
+			if (Button == BUTTON_LEFT || Button == BUTTON_MIDDLE)
+				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_CALLSIGN, rt.GetCallsign(), NULL, TAG_ITEM_FUNCTION_HANDOFF_POPUP_MENU, Pt, Area);
+			else if (Button == BUTTON_RIGHT)
+				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_CALLSIGN, rt.GetCallsign(), NULL, TAG_ITEM_FUNCTION_COMMUNICATION_POPUP, Pt, Area);
 
 			break;
 
 		case TAG_CITEM_FPBOX:
-			if (Button == EuroScopePlugIn::BUTTON_RIGHT)
-				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_FPBOX, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_OPEN_FP_DIALOG, Pt, Area);
+			if (Button == BUTTON_RIGHT)
+				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_FPBOX, rt.GetCallsign(), NULL, TAG_ITEM_FUNCTION_OPEN_FP_DIALOG, Pt, Area);
 
 			break;
 
 		case TAG_CITEM_RWY:
-			if (Button == EuroScopePlugIn::BUTTON_RIGHT)
-				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_RWY, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_ASSIGNED_RUNWAY, Pt, Area);
+			if (Button == BUTTON_RIGHT)
+				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_RWY, rt.GetCallsign(), NULL, TAG_ITEM_FUNCTION_ASSIGNED_RUNWAY, Pt, Area);
 
 			break;
 
 		case TAG_CITEM_SID:
-			if (Button == EuroScopePlugIn::BUTTON_RIGHT)
-				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_SID, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_ASSIGNED_SID, Pt, Area);
+			if (Button == BUTTON_RIGHT)
+				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_SID, rt.GetCallsign(), NULL, TAG_ITEM_FUNCTION_ASSIGNED_SID, Pt, Area);
 
 			break;
 
 		case TAG_CITEM_GATE:
-			if (Button == EuroScopePlugIn::BUTTON_RIGHT)
-				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_GATE, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_EDIT_SCRATCH_PAD, Pt, Area);
+			if (Button == BUTTON_RIGHT)
+				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_GATE, rt.GetCallsign(), NULL, TAG_ITEM_FUNCTION_EDIT_SCRATCH_PAD, Pt, Area);
 
 			break;
 
 		case TAG_CITEM_GROUNDSTATUS:
-			if (Button == EuroScopePlugIn::BUTTON_RIGHT)
-				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_GROUNDSTATUS, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_SET_GROUND_STATUS, Pt, Area);
+			if (Button == BUTTON_RIGHT)
+				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_GROUNDSTATUS, rt.GetCallsign(), NULL, TAG_ITEM_FUNCTION_SET_GROUND_STATUS, Pt, Area);
 			
 			break;
 		}
@@ -1812,191 +1815,13 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 #pragma endregion
 
+	CRadarTarget rt;
 #pragma region Symbols
 	// Drawing the symbols
 	Logger::info("Symbols loop");
-	EuroScopePlugIn::CRadarTarget rt;
-	for (rt = GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid(); rt = GetPlugIn()->RadarTargetSelectNext(rt))
-	{
-		if (!rt.IsValid() || !rt.GetPosition().IsValid())
-			continue;
 
-		int reportedGs = rt.GetPosition().GetReportedGS();
-		int radarRange = CurrentConfig->getActiveProfile()["filters"]["radar_range_nm"].GetInt();
-		int altitudeFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_alt"].GetInt();
-		int speedFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_spd"].GetInt();
-		bool isAcDisplayed = isVisible(rt);
+	Symbol::render(dc, graphics, this);
 
-		if (!isAcDisplayed)
-			continue;
-
-		RimcasInstance->OnRefresh(rt, this, IsCorrelated(GetPlugIn()->FlightPlanSelect(rt.GetCallsign()), rt));
-
-		CRadarTargetPositionData RtPos = rt.GetPosition();
-
-		POINT acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
-
-		if (rt.GetGS() > 5) {
-			POINT oldacPosPix;
-			CRadarTargetPositionData pAcPos = rt.GetPosition();
-
-			for (int i = 1; i <= 2; i++) {
-				oldacPosPix = ConvertCoordFromPositionToPixel(pAcPos.GetPosition());
-				pAcPos = rt.GetPreviousPosition(pAcPos);
-				acPosPix = ConvertCoordFromPositionToPixel(pAcPos.GetPosition());
-
-				if (i == 1 && !Patatoides[rt.GetCallsign()].History_one_points.empty() && Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
-					SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow",
-						CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_one_color"])));
-
-					PointF lpPoints[100];
-					for (unsigned int i1 = 0; i1 < Patatoides[rt.GetCallsign()].History_one_points.size(); i1++)
-					{
-						CPosition pos;
-						pos.m_Latitude = Patatoides[rt.GetCallsign()].History_one_points[i1].x;
-						pos.m_Longitude = Patatoides[rt.GetCallsign()].History_one_points[i1].y;
-
-						lpPoints[i1] = { REAL(ConvertCoordFromPositionToPixel(pos).x), REAL(ConvertCoordFromPositionToPixel(pos).y) };
-					}
-					graphics.FillPolygon(&H_Brush, lpPoints, Patatoides[rt.GetCallsign()].History_one_points.size());
-				}
-
-				if (i != 2) {
-					if (!Patatoides[rt.GetCallsign()].History_two_points.empty() && Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
-						SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow",
-							CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_two_color"])));
-
-						PointF lpPoints[100];
-						for (unsigned int i1 = 0; i1 < Patatoides[rt.GetCallsign()].History_two_points.size(); i1++)
-						{
-							CPosition pos;
-							pos.m_Latitude = Patatoides[rt.GetCallsign()].History_two_points[i1].x;
-							pos.m_Longitude = Patatoides[rt.GetCallsign()].History_two_points[i1].y;
-
-							lpPoints[i1] = { REAL(ConvertCoordFromPositionToPixel(pos).x), REAL(ConvertCoordFromPositionToPixel(pos).y) };
-						}
-						graphics.FillPolygon(&H_Brush, lpPoints, Patatoides[rt.GetCallsign()].History_two_points.size());
-					}
-				}
-
-				if (i == 2 && !Patatoides[rt.GetCallsign()].History_three_points.empty() && Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
-					SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow",
-						CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_three_color"])));
-
-					PointF lpPoints[100];
-					for (unsigned int i1 = 0; i1 < Patatoides[rt.GetCallsign()].History_three_points.size(); i1++)
-					{
-						CPosition pos;
-						pos.m_Latitude = Patatoides[rt.GetCallsign()].History_three_points[i1].x;
-						pos.m_Longitude = Patatoides[rt.GetCallsign()].History_three_points[i1].y;
-
-						lpPoints[i1] = { REAL(ConvertCoordFromPositionToPixel(pos).x), REAL(ConvertCoordFromPositionToPixel(pos).y) };
-					}
-					graphics.FillPolygon(&H_Brush, lpPoints, Patatoides[rt.GetCallsign()].History_three_points.size());
-				}
-			}
-
-			int TrailNumber = Trail_Gnd;
-			if (reportedGs > 50)
-				TrailNumber = Trail_App;
-
-			CRadarTargetPositionData previousPos = rt.GetPreviousPosition(rt.GetPosition());
-			for (int j = 1; j <= TrailNumber; j++) {
-				POINT pCoord = ConvertCoordFromPositionToPixel(previousPos.GetPosition());
-
-				graphics.FillRectangle(&SolidBrush(ColorManager->get_corrected_color("symbol", Gdiplus::Color::White)),
-					pCoord.x - 1, pCoord.y - 1, 2, 2);
-
-				previousPos = rt.GetPreviousPosition(previousPos);
-			}
-		}
-
-
-		if (CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
-
-			SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow",
-				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["target_color"])));
-
-			PointF lpPoints[100];
-			for (unsigned int i = 0; i < Patatoides[rt.GetCallsign()].points.size(); i++)
-			{
-				CPosition pos;
-				pos.m_Latitude = Patatoides[rt.GetCallsign()].points[i].x;
-				pos.m_Longitude = Patatoides[rt.GetCallsign()].points[i].y;
-
-				lpPoints[i] = { REAL(ConvertCoordFromPositionToPixel(pos).x), REAL(ConvertCoordFromPositionToPixel(pos).y) };
-			}
-
-			graphics.FillPolygon(&H_Brush, lpPoints, Patatoides[rt.GetCallsign()].points.size());
-		}
-		acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
-
-		bool AcisCorrelated = IsCorrelated(GetPlugIn()->FlightPlanSelect(rt.GetCallsign()), rt);
-
-		if (!AcisCorrelated && reportedGs < 1 && !ReleaseInProgress && !AcquireInProgress)
-			continue;
-
-		CPen qTrailPen(PS_SOLID, 1, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
-		CPen* pqOrigPen = dc.SelectObject(&qTrailPen);
-
-		if (RtPos.GetTransponderC()) {
-			dc.MoveTo({ acPosPix.x, acPosPix.y - 6 });
-			dc.LineTo({ acPosPix.x - 6, acPosPix.y });
-			dc.LineTo({ acPosPix.x, acPosPix.y + 6 });
-			dc.LineTo({ acPosPix.x + 6, acPosPix.y });
-			dc.LineTo({ acPosPix.x, acPosPix.y - 6 });
-		}
-		else {
-			dc.MoveTo(acPosPix.x, acPosPix.y);
-			dc.LineTo(acPosPix.x - 4, acPosPix.y - 4);
-			dc.MoveTo(acPosPix.x, acPosPix.y);
-			dc.LineTo(acPosPix.x + 4, acPosPix.y - 4);
-			dc.MoveTo(acPosPix.x, acPosPix.y);
-			dc.LineTo(acPosPix.x - 4, acPosPix.y + 4);
-			dc.MoveTo(acPosPix.x, acPosPix.y);
-			dc.LineTo(acPosPix.x + 4, acPosPix.y + 4);
-		}
-
-		// Predicted Track Line
-		// It starts 20 seconds away from the ac
-		if (reportedGs > 50)
-		{
-			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * 10;
-			CPosition AwayBase = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
-
-			d = double(rt.GetPosition().GetReportedGS()*0.514444) * (PredictedLenght * 60) - 10;
-			CPosition PredictedEnd = BetterHarversine(AwayBase, rt.GetTrackHeading(), d);
-
-			dc.MoveTo(ConvertCoordFromPositionToPixel(AwayBase));
-			dc.LineTo(ConvertCoordFromPositionToPixel(PredictedEnd));
-		}
-
-		if (mouseWithin({ acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 })) {
-			dc.MoveTo(acPosPix.x, acPosPix.y - 8);
-			dc.LineTo(acPosPix.x - 6, acPosPix.y - 12);
-			dc.MoveTo(acPosPix.x, acPosPix.y - 8);
-			dc.LineTo(acPosPix.x + 6, acPosPix.y - 12);
-
-			dc.MoveTo(acPosPix.x, acPosPix.y + 8);
-			dc.LineTo(acPosPix.x - 6, acPosPix.y + 12);
-			dc.MoveTo(acPosPix.x, acPosPix.y + 8);
-			dc.LineTo(acPosPix.x + 6, acPosPix.y + 12);
-
-			dc.MoveTo(acPosPix.x - 8, acPosPix.y );
-			dc.LineTo(acPosPix.x - 12, acPosPix.y -6);
-			dc.MoveTo(acPosPix.x - 8, acPosPix.y);
-			dc.LineTo(acPosPix.x - 12 , acPosPix.y + 6);
-
-			dc.MoveTo(acPosPix.x + 8, acPosPix.y);
-			dc.LineTo(acPosPix.x + 12, acPosPix.y - 6);
-			dc.MoveTo(acPosPix.x + 8, acPosPix.y);
-			dc.LineTo(acPosPix.x + 12, acPosPix.y + 6);
-		}
-
-		AddScreenObject(DRAWING_AC_SYMBOL, rt.GetCallsign(), { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, AcisCorrelated ? GetBottomLine(rt.GetCallsign()).c_str() : rt.GetSystemID());
-
-		dc.SelectObject(pqOrigPen);
-	}
 
 #pragma endregion Drawing of the symbols
 
@@ -2012,9 +1837,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 #pragma region tags
 	// Drawing the Tags
 	Logger::info("Tags loop");
-	for (rt = GetPlugIn()->RadarTargetSelectFirst();
-		rt.IsValid();
-		rt = GetPlugIn()->RadarTargetSelectNext(rt))
+	for ( rt = GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid(); rt = GetPlugIn()->RadarTargetSelectNext(rt))
 	{
 		if (!rt.IsValid())
 			continue;
@@ -2063,8 +1886,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			TagCenter.y = long(acPosPix.y + float(lenght * sin(DegToRad(TagAngles[rt.GetCallsign()]))));
 		}
 
-		TagTypes TagType = TagTypes::Departure;		
-		TagTypes ColorTagType = TagTypes::Departure;		
+		TagTypes TagType = TagTypes::Departure;
+		TagTypes ColorTagType = TagTypes::Departure;
 
 		if (fp.IsValid() && strcmp(fp.GetFlightPlanData().GetDestination(), getActiveAirport().c_str()) == 0) {
 			TagType = TagTypes::Arrival;

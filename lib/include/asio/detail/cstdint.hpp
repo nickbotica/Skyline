@@ -20,7 +20,7 @@
 #if defined(ASIO_HAS_CSTDINT)
 # include <cstdint>
 #else // defined(ASIO_HAS_CSTDINT)
-# include <boost/cstdint.hpp>
+//# include <boost/cstdint.hpp>
 #endif // defined(ASIO_HAS_CSTDINT)
 
 namespace asio {
@@ -33,12 +33,12 @@ using std::uint32_t;
 using std::int64_t;
 using std::uint64_t;
 #else // defined(ASIO_HAS_CSTDINT)
-using boost::int16_t;
-using boost::uint16_t;
-using boost::int32_t;
-using boost::uint32_t;
-using boost::int64_t;
-using boost::uint64_t;
+//using boost::int16_t;
+//using boost::uint16_t;
+//using boost::int32_t;
+//using boost::uint32_t;
+//using boost::int64_t;
+//using boost::uint64_t;
 #endif // defined(ASIO_HAS_CSTDINT)
 
 } // namespace asio
