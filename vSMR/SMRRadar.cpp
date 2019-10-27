@@ -1835,7 +1835,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	// Drawing the symbols
 	Logger::info("Symbols loop");
 
-	Symbol::render(dc, &graphics, this);
+	Symbol::render(&graphics, this);
 
 
 #pragma endregion Drawing of the symbols
