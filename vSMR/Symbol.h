@@ -1,4 +1,3 @@
-#include <array>
 #pragma once
 
 class Symbol
@@ -9,7 +8,6 @@ public:
 	void static drawPrimaryAndSecondayTarget(Graphics* graphics, Pen* pen, Point acPos);
 	void static drawSecondaryTarget(Graphics* graphics, Pen* pen, Point acPos);
 	void static drawHistoryPoint(Graphics* graphics, Color color, Point point);
-	std::array<CPosition, 5> static getPreviousPositions(CRadarTarget rt);
 private:
 	Symbol() {}
 };

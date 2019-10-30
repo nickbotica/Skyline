@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Resource.h"#include "EuroScopePlugIn.h"
+#include "ESHelper.h"
 #include "SMRRadar.hpp"
 #include "Symbol.h"
 
@@ -17,7 +18,7 @@ void Symbol::render(Graphics* graphics, CSMRRadar* radar)
 		CRadarTargetPositionData rtPos = rt.GetPosition();
 		Point acPosPix = radar->GetPoint(rtPos.GetPosition());
 
-		Color green(131, 255, 169);
+		Color green(108, 245, 113);
 
 		bool AcisCorrelated = radar->IsCorrelated(radar->GetPlugIn()->FlightPlanSelect(rt.GetCallsign()), rt);
 
@@ -44,7 +45,7 @@ void Symbol::render(Graphics* graphics, CSMRRadar* radar)
 		// History trail
 		if (reportedGs > 0)
 		{
-			auto previousPositions = getPreviousPositions(rt);
+			auto previousPositions = ESHelper::getPreviousPositions(rt);
 
 			for each (auto pos in previousPositions)
 				drawHistoryPoint(graphics, green, radar->GetPoint(pos));
@@ -118,20 +119,4 @@ void Symbol::drawHistoryPoint(Graphics* graphics, Color color, Point point)
 {
 	Pen dotPen(color, 1.0F);
 	graphics->DrawRectangle(&dotPen, point.X, point.Y, 1, 1);
-}
-
-std::array<CPosition, 5> Symbol::getPreviousPositions(CRadarTarget rt)
-{
-	std::array<CPosition, 5> previousPositions{};
-
-	auto previousRtPos = rt.GetPreviousPosition(rt.GetPosition());
-	previousPositions[0] = previousRtPos.GetPosition();
-
-	for (int i = 1; i < 5; i++)
-	{
-		previousRtPos = rt.GetPreviousPosition(previousRtPos);
-		previousPositions[i] = previousRtPos.GetPosition();
-	}
-
-	return previousPositions;
 }

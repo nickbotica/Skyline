@@ -4,7 +4,6 @@
 #include <string>
 #include "EuroScopePlugIn.h"
 #define _USE_MATH_DEFINES
-// ReSharper disable once CppUnusedIncludeDirective
 #include <math.h>
 #include <vector>
 #include <sstream>
@@ -225,6 +224,59 @@ inline static bool LiangBarsky(RECT Area, POINT fromSrc, POINT toSrc, POINT &Cli
 	ClipTo.y = long(y0src + t1*ydelta);
 
 	return true;        // (clipped) line is drawn
+};
+
+inline static bool LiangBarsky(CRect clipArea, CPoint fromPoint, CPoint toPoint, CPoint& clipFrom, CPoint& clipTo)
+{
+	double edgeLeft, edgeRight, edgeBottom, edgeTop, x0src, y0src, x1src, y1src;
+
+	edgeLeft = clipArea.left;
+	edgeRight = clipArea.right;
+	edgeBottom = clipArea.top;
+	edgeTop = clipArea.bottom;
+
+	x0src = fromPoint.x;
+	y0src = fromPoint.y;
+	x1src = toPoint.x;
+	y1src = toPoint.y;
+
+	double t0 = 0.0;
+	double t1 = 1.0;
+	double xdelta = x1src - x0src;
+	double ydelta = y1src - y0src;
+	double p = 0, q = 0, r;
+
+	for (int edge = 0; edge < 4; edge++) {   // Traverse through left, right, bottom, top edges.
+		if (edge == 0) { p = -xdelta;    q = -(edgeLeft - x0src); }
+		if (edge == 1) { p = xdelta;     q = (edgeRight - x0src); }
+		if (edge == 2) { p = -ydelta;    q = -(edgeBottom - y0src); }
+		if (edge == 3) { p = ydelta;     q = (edgeTop - y0src); }
+		r = q / p;
+		if (p == 0 && q < 0)
+			return false;   // Don't draw line at all. (parallel line outside)
+
+		if (p < 0)
+		{
+			if (r > t1)
+				return false;         // Don't draw line at all.
+			else if (r > t0)
+				t0 = r;            // Line is clipped!
+		}
+		else if (p > 0) {
+			if (r < t0)
+				return false;      // Don't draw line at all.
+			else if (r < t1)
+				t1 = r;         // Line is clipped!
+		}
+	}
+
+	clipFrom.x = long(x0src + t0 * xdelta);
+	clipFrom.y = long(y0src + t0 * ydelta);
+
+	clipTo.x = long(x0src + t1 * xdelta);
+	clipTo.y = long(y0src + t1 * ydelta);
+
+	return true;
 };
 
 static bool mouseWithin(POINT mouseLocation,CRect rect) {

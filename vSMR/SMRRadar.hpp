@@ -46,6 +46,9 @@ class CSMRRadar :
 	public EuroScopePlugIn::CRadarScreen
 {
 public:
+	static bool IsTagBeingDragged(string c);
+	static bool mouseWithin(CRect rect);
+	static bool mouseWithin(Rect rect);
 	CSMRRadar();
 	virtual ~CSMRRadar();
 
@@ -136,13 +139,6 @@ public:
 	multimap<string, string> DistanceTools;
 	bool DistanceToolActive = false;
 	pair<string, string> ActiveDistance;
-
-	//----
-	// Tag types
-	//---
-
-	enum TagTypes { Departure, Arrival, Airborne, Uncorrelated };
-
 
 	string ActiveAirport = "LFPG";
 
@@ -318,7 +314,7 @@ public:
 
 	//---GetBottomLine---------------------------------------------
 
-	virtual string GetBottomLine(const char * Callsign);
+	virtual std::string GetBottomLine(const char * Callsign);
 
 	//---LineIntersect---------------------------------------------
 

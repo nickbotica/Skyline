@@ -2,6 +2,7 @@
 #include "Resource.h"
 #include "SMRRadar.hpp"
 #include "Symbol.h"
+#include "Tag.h"
 
 using namespace EuroScopePlugIn;
 
@@ -32,21 +33,23 @@ inline double closest(std::vector<double> const& vec, double value) {
 
 	return *it;
 };
-inline bool IsTagBeingDragged(string c)
+bool CSMRRadar::IsTagBeingDragged(string c)
 {
 	return TagBeingDragged == c;
 }
-bool mouseWithin(CRect rect) {
+bool CSMRRadar::mouseWithin(CRect rect) {
 	if (mouseLocation.x >= rect.left + 1 && mouseLocation.x <= rect.right - 1 && mouseLocation.y >= rect.top + 1 && mouseLocation.y <= rect.bottom - 1)
 		return true;
 	return false;
 }
-
-// ReSharper disable CppMsExtAddressOfClassRValue
+bool CSMRRadar::mouseWithin(Rect rect) {
+	if (mouseLocation.x >= rect.GetLeft() + 1 && mouseLocation.x <= rect.GetRight() - 1 && mouseLocation.y >= rect.GetTop() + 1 && mouseLocation.y <= rect.GetBottom() - 1)
+		return true;
+	return false;
+}
 
 CSMRRadar::CSMRRadar()
 {
-
 
 	Logger::info("CSMRRadar::CSMRRadar()");
 
@@ -181,7 +184,6 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 	Logger::info(string(__FUNCSIG__));
 	const char * p_value;
 
-	// ReSharper disable CppZeroConstantCanBeReplacedWithNullptr
 	if ((p_value = GetDataFromAsr("Airport")) != NULL)
 		setActiveAirport(p_value);
 
@@ -1339,214 +1341,6 @@ bool CSMRRadar::OnCompileCommand(const char * sCommandLine)
 	return false;
 }
 
-map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, bool isAcCorrelated, bool isProMode, int TransitionAltitude, bool useSpeedForGates)
-{
-	Logger::info(string(__FUNCSIG__));
-	// ----
-	// Tag items available
-	// callsign: Callsign with freq state and comm *
-	// actype: Aircraft type *
-	// flightlevel: Flightlevel/Pressure altitude of the ac *
-	// gs: Ground speed of the ac *
-	// vsi: Climbing or descending symbol *
-	// wake: Wake turbulance cat *
-	// ssr: the current squawk of the ac
-	// ----
-
-	//UncorrelatedAC
-	//UncorrelatedS
-	//CorrelatedAC
-	//CorrelatedS
-
-	bool IsPrimary = !rt.GetPosition().GetTransponderC();
-	bool isAirborne = rt.GetPosition().GetReportedGS() > 50;
-
-
-	// ----- SSR -------
-	string tssr = "";
-	if (rt.IsValid())
-	{
-		tssr = rt.GetPosition().GetSquawk();
-	}
-
-	// ----- Callsign -------
-	string callsign = rt.GetCallsign();
-
-	// ----- Wake category -------
-	string wake = "?";
-	if (fp.IsValid() && isAcCorrelated) {
-		wake = "";
-		wake += fp.GetFlightPlanData().GetAircraftWtc();
-	}
-
-	// ----- Aircraft type -------
-
-	string actype = "    ";
-	if (fp.IsValid() && fp.GetFlightPlanData().IsReceived())
-	{
-		actype = fp.GetFlightPlanData().GetAircraftFPType();
-		actype = actype.substr(0, 4);
-	}
-
-	// ----- Flightlevel -------
-
-	// Transition altitude is 13000 ft
-	// A switchs for F >=140
-	// Transition level is 15,000 ft
-
-	int fl = rt.GetPosition().GetFlightLevel();
-	int padding = 5;
-	string pfls = "F";
-	if (fl <= 14000) {
-		fl = rt.GetPosition().GetPressureAltitude();
-		pfls = "A";
-		padding = 5;
-	}
-	string flightlevel = (pfls + padWithZeros(padding, fl)).substr(0, 4);
-
-	// ----- Vertical speed indicator -------
-	string vsi = " ";
-	int delta_fl = rt.GetPosition().GetFlightLevel() - rt.GetPreviousPosition(rt.GetPosition()).GetFlightLevel();
-	if (abs(delta_fl) >= 50) {
-		if (delta_fl < 0) {
-			vsi = "|";
-		}
-		else {
-			vsi = "^";
-		}
-	}
-
-	// ----- Temp Altitude -----
-	//TODO: not sure this is efficient
-	string tempAlt;
-
-	if (fp.IsValid() && isAcCorrelated) {
-
-		int clearedAlt = fp.GetControllerAssignedData().GetClearedAltitude();
-
-		// no temp alt set display FP final alt
-		if (clearedAlt <= 0)
-		{
-			int fa = fp.GetFinalAltitude();
-			tempAlt = padWithZeros(5, fp.GetFinalAltitude()).substr(0, 3);
-		}
-		// if cleared for instrument approach
-		if (clearedAlt == 1)
-		{
-			tempAlt = "APP";
-		}
-		// if cleared visual approach
-		else if (clearedAlt == 2)
-		{
-			tempAlt = "VIS";
-		}
-		// if a cleared altitude is set display it
-		else if (clearedAlt > 2)
-		{
-			tempAlt = padWithZeros(5, (clearedAlt / 100)).substr(0, 3);
-		}
-
-		// if aircraft is cruising at final altitude +-50ft display nothing
-		if ((rt.GetPosition().GetFlightLevel() >= fp.GetFinalAltitude() - 50) &&
-			(rt.GetPosition().GetFlightLevel() < fp.GetFinalAltitude() + 50))
-		{
-			tempAlt = "   ";
-		}
-	}
-
-	// ----- Groundspeed -------
-	string speed = std::to_string(rt.GetPosition().GetReportedGS());
-
-	// ----- Controller ID -------
-	string controller = "";
-	if (fp.IsValid() && isAcCorrelated)
-	{
-		controller = fp.GetTrackingControllerId();
-	}
-
-	// ----- Destination -------
-	string dest = "    ";
-	if (fp.IsValid() && isAcCorrelated)
-	{
-		dest = fp.GetFlightPlanData().GetDestination();
-	}
-
-	// ----- Assigned Squawk -------
-	string assr = "    ";
-	if (fp.IsValid() && isAcCorrelated)
-	{
-		assr = fp.GetControllerAssignedData().GetSquawk();
-	}
-
-	// ----- Scratchpad -------
-	string scratchpad = "";
-	if (fp.IsValid() && isAcCorrelated)
-	{
-		scratchpad = fp.GetControllerAssignedData().GetScratchPadString();
-	}
-
-	// ----- STAR -------
-	string star = "       ";
-	if ((rt.GetPosition().GetPressureAltitude() > 4000) && fp.IsValid() && isAcCorrelated)
-	{
-		star = fp.GetFlightPlanData().GetStarName();
-	}
-
-	// ----- Generating the replacing map -----
-	map<string, string> TagReplacingMap;
-
-	// System ID for uncorrelated
-	TagReplacingMap["systemid"] = "T:";
-	string tpss = rt.GetSystemID();
-	TagReplacingMap["systemid"].append(tpss.substr(1, 6));
-
-
-	// Pro mode data here
-	if (isProMode)
-	{
-
-		if (isAirborne && !isAcCorrelated)
-		{
-			callsign = tssr;
-		}
-
-		if (!isAcCorrelated)
-		{
-			actype = "NoFPL";
-		}
-
-		// Is a primary target
-
-		if (isAirborne && !isAcCorrelated && IsPrimary)
-		{
-			flightlevel = "NoALT";
-			vsi = "?";
-			speed = std::to_string(rt.GetGS());
-		}
-
-		if (isAirborne && !isAcCorrelated && IsPrimary)
-		{
-			callsign = TagReplacingMap["systemid"];
-		}
-	}
-
-	TagReplacingMap["ssr"] = tssr;
-	TagReplacingMap["callsign"] = callsign;
-	TagReplacingMap["wake"] = wake;
-	TagReplacingMap["actype"] = actype;
-	TagReplacingMap["flightlevel"] = flightlevel;
-	TagReplacingMap["vsi"] = vsi;
-	TagReplacingMap["tempalt"] = tempAlt;
-	TagReplacingMap["gs"] = speed;
-	TagReplacingMap["controller"] = controller;
-	TagReplacingMap["dest"] = dest;
-	TagReplacingMap["assr"] = assr;
-	TagReplacingMap["scratchpad"] = scratchpad;
-	TagReplacingMap["star"] = star;
-
-	return TagReplacingMap;
-}
-
 void CSMRRadar::OnFlightPlanDisconnect(CFlightPlan FlightPlan)
 {
 	Logger::info(string(__FUNCSIG__));
@@ -1580,7 +1374,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCURSOR), IMAGE_CURSOR, 0, 0, LR_SHARED));
 			// This got broken because of threading as far as I can tell
 			// The cursor does change for some milliseconds but gets reset almost instantly by external MFC code
-
 		}
 		else {
 			smrCursor = (HCURSOR)::LoadCursor(NULL, IDC_ARROW);
@@ -1627,15 +1420,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		static RECT GetAreaFromText(CDC * dc, string text, POINT Pos) {
 			RECT Area = { Pos.x, Pos.y, Pos.x + dc->GetTextExtent(text.c_str()).cx, Pos.y + dc->GetTextExtent(text.c_str()).cy };
 			return Area;
-		}
-		static string getEnumString(TagTypes type) {
-			if (type == TagTypes::Departure)
-				return "departure";
-			if (type == TagTypes::Arrival)
-				return "arrival";
-			if (type == TagTypes::Uncorrelated)
-				return "uncorrelated";
-			return "airborne";
 		}
 	};
 
@@ -1831,6 +1615,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 #pragma endregion
 
 	CRadarTarget rt;
+
 #pragma region Symbols
 	// Drawing the symbols
 	Logger::info("Symbols loop");
@@ -1852,279 +1637,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 #pragma region tags
 	// Drawing the Tags
 	Logger::info("Tags loop");
-	for ( rt = GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid(); rt = GetPlugIn()->RadarTargetSelectNext(rt))
-	{
-		if (!rt.IsValid())
-			continue;
-
-		CRadarTargetPositionData RtPos = rt.GetPosition();
-		POINT acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
-		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(rt.GetCallsign());
-		int reportedGs = RtPos.GetReportedGS();
-
-		// Filtering the targets
-
-		int radarRange = CurrentConfig->getActiveProfile()["filters"]["radar_range_nm"].GetInt();
-		int altitudeFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_alt"].GetInt();
-		int speedFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_spd"].GetInt();
-		bool isAcDisplayed = isVisible(rt);
-
-		bool AcisCorrelated = IsCorrelated(fp, rt);
-
-		if (!AcisCorrelated && reportedGs < 3)
-			isAcDisplayed = false;
-
-		if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
-			isAcDisplayed = false;
-
-		if (!isAcDisplayed)
-			continue;
-
-		// Getting the tag center/offset
-
-		POINT TagCenter;
-		map<string, POINT>::iterator it = TagsOffsets.find(rt.GetCallsign());
-		if (it != TagsOffsets.end()) {
-			TagCenter = { acPosPix.x + it->second.x, acPosPix.y + it->second.y };
-		}
-		else {
-			// Use angle:
-
-			if (TagAngles.find(rt.GetCallsign()) == TagAngles.end())
-				TagAngles[rt.GetCallsign()] = 270.0f;
-
-			int lenght = LeaderLineDefaultlenght;
-			if (TagLeaderLineLength.find(rt.GetCallsign()) != TagLeaderLineLength.end())
-				lenght = TagLeaderLineLength[rt.GetCallsign()];
-
-			TagCenter.x = long(acPosPix.x + float(lenght * cos(DegToRad(TagAngles[rt.GetCallsign()]))));
-			TagCenter.y = long(acPosPix.y + float(lenght * sin(DegToRad(TagAngles[rt.GetCallsign()]))));
-		}
-
-		TagTypes TagType = TagTypes::Departure;
-		TagTypes ColorTagType = TagTypes::Departure;
-
-		if (fp.IsValid() && strcmp(fp.GetFlightPlanData().GetDestination(), getActiveAirport().c_str()) == 0) {
-			TagType = TagTypes::Arrival;
-			ColorTagType = TagTypes::Arrival;
-		}
-
-		if (reportedGs > 50) {
-			TagType = TagTypes::Airborne;
-
-			// Is "use_departure_arrival_coloring" enabled? if not, then use the airborne colors
-			bool useDepArrColors = CurrentConfig->getActiveProfile()["labels"]["airborne"]["use_departure_arrival_coloring"].GetBool();
-			if (!useDepArrColors) {
-				ColorTagType = TagTypes::Airborne;
-			}
-		}
-
-		if (!AcisCorrelated && reportedGs >= 3)
-		{
-			TagType = TagTypes::Uncorrelated;
-			ColorTagType = TagTypes::Uncorrelated;
-		}
-
-		map<string, string> TagReplacingMap = GenerateTagData(rt, fp, IsCorrelated(fp, rt), CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool(), GetPlugIn()->GetTransitionAltitude(), CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool());
-
-		// ----- Generating the clickable map -----
-		map<string, int> TagClickableMap;
-		TagClickableMap[TagReplacingMap["callsign"]] = TAG_CITEM_CALLSIGN;
-		TagClickableMap[TagReplacingMap["actype"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["sctype"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["sqerror"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["deprwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["seprwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["gate"]] = TAG_CITEM_GATE;
-		TagClickableMap[TagReplacingMap["sate"]] = TAG_CITEM_GATE;
-		TagClickableMap[TagReplacingMap["flightlevel"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["gs"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["vsi"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["wake"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["tssr"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["asid"]] = TagClickableMap[TagReplacingMap["ssid"]] = TAG_CITEM_SID;
-		TagClickableMap[TagReplacingMap["systemid"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["groundstatus"]] = TAG_CITEM_GROUNDSTATUS;
-
-		//
-		// ----- Now the hard part, drawing (using gdi+) -------
-		//
-
-		// First we need to figure out the tag size
-
-		int TagWidth = 0, TagHeight = 0;
-		RectF mesureRect;
-		graphics.MeasureString(L" ", wcslen(L" "), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-		int blankWidth = (int)mesureRect.GetRight();
-
-		mesureRect = RectF(0, 0, 0, 0);
-		graphics.MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"),
-			customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-		int oneLineHeight = (int)mesureRect.GetBottom();
-
-		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
-		const Value& LabelLines = LabelsSettings[Utils::getEnumString(TagType).c_str()]["definition"];
-		vector<vector<string>> ReplacedLabelLines;
-
-		if (!LabelLines.IsArray())
-			return;
-
-		for (unsigned int i = 0; i < LabelLines.Size(); i++)
-		{
-
-			const Value& line = LabelLines[i];
-			vector<string> lineStringArray;
-
-			// Adds one line height
-			TagHeight += oneLineHeight;
-
-			int TempTagWidth = 0;
-
-			for(unsigned int j = 0; j < line.Size(); j++)
-			{
-				mesureRect = RectF(0, 0, 0, 0);
-				string element = line[j].GetString();
-
-				for (auto& kv : TagReplacingMap)
-					replaceAll(element, kv.first, kv.second);
-
-				lineStringArray.push_back(element);
-
-				wstring wstr = wstring(element.begin(), element.end());
-				graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()),
-					customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-
-				TempTagWidth += (int) mesureRect.GetRight();
-
-				if (j != line.Size() - 1)
-					TempTagWidth += (int) blankWidth;
-			}
-
-			TagWidth = max(TagWidth, TempTagWidth);
-
-			ReplacedLabelLines.push_back(lineStringArray);
-		}
-		TagHeight = TagHeight - 2;		
-
-		Color TagBackgroundColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(),
-			CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color"]),
-			CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color_on_runway"]),
-			CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
-			CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"]));
-
-		// We need to figure out if the tag color changes according to RIMCAS alerts, or not
-		bool rimcasLabelOnly = CurrentConfig->getActiveProfile()["rimcas"]["rimcas_label_only"].GetBool();
-
-		if (rimcasLabelOnly)
-			TagBackgroundColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(),
-			CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color"]),
-			CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color_on_runway"]));
-
-		TagBackgroundColor = ColorManager->get_corrected_color("label", TagBackgroundColor);
-
-		// Drawing the tag background
-
-		CRect TagBackgroundRect(TagCenter.x - (TagWidth / 2), TagCenter.y - (TagHeight / 2), TagCenter.x + (TagWidth / 2), TagCenter.y + (TagHeight / 2));
-		SolidBrush TagBackgroundBrush(TagBackgroundColor);
-		graphics.FillRectangle(&TagBackgroundBrush, CopyRect(TagBackgroundRect));
-		if (mouseWithin(TagBackgroundRect) || IsTagBeingDragged(rt.GetCallsign()))
-		{
-			Pen pw(ColorManager->get_corrected_color("label", Color::White));
-			graphics.DrawRectangle(&pw, CopyRect(TagBackgroundRect));
-		}
-
-		// Drawing the tag text
-
-		SolidBrush FontColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["text_color"])));
-		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
-		SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
-
-		// Drawing the leader line
-		RECT TagBackRectData = TagBackgroundRect;
-		POINT toDraw1, toDraw2;
-		if (LiangBarsky(TagBackRectData, acPosPix, TagBackgroundRect.CenterPoint(), toDraw1, toDraw2))
-			graphics.DrawLine(&Pen(ColorManager->get_corrected_color("symbol", Color::White)), PointF(Gdiplus::REAL(acPosPix.x), Gdiplus::REAL(acPosPix.y)), PointF(Gdiplus::REAL(toDraw1.x), Gdiplus::REAL(toDraw1.y)));
-
-		// If we use a RIMCAS label only, we display it, and adapt the rectangle
-		CRect oldCrectSave = TagBackgroundRect;
-
-		if (rimcasLabelOnly) {
-			Color RimcasLabelColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(), Color::AliceBlue, Color::AliceBlue,
-				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
-				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"]));
-
-			if (RimcasLabelColor.ToCOLORREF() != Color(Color::AliceBlue).ToCOLORREF()) {
-				RimcasLabelColor = ColorManager->get_corrected_color("label", RimcasLabelColor);
-				int rimcas_height = 0;
-
-				wstring wrimcas_height = wstring(L"ALERT");
-
-				RectF RectRimcas_height;
-
-				graphics.MeasureString(wrimcas_height.c_str(), wcslen(wrimcas_height.c_str()), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
-				rimcas_height = int(RectRimcas_height.GetBottom());
-
-				// Drawing the rectangle
-
-				CRect RimcasLabelRect(TagBackgroundRect.left, TagBackgroundRect.top - rimcas_height, TagBackgroundRect.right, TagBackgroundRect.top);
-				graphics.FillRectangle(&SolidBrush(RimcasLabelColor), CopyRect(RimcasLabelRect));
-				TagBackgroundRect.top -= rimcas_height;
-
-				// Drawing the text
-
-				wstring rimcasw = wstring(L"ALERT");
-				StringFormat stformat = new StringFormat();
-				stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
-				graphics.DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFonts[currentFontSize], PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
-			}
-		}
-
-		// Adding the tag screen object
-		tagAreas[rt.GetCallsign()] = TagBackgroundRect;
-		AddScreenObject(DRAWING_TAG, rt.GetCallsign(), TagBackgroundRect, true, GetBottomLine(rt.GetCallsign()).c_str());
-
-		TagBackgroundRect = oldCrectSave;
-
-		// Clickable zones
-		int heightOffset = 0;
-		for (auto&& line : ReplacedLabelLines)
-		{
-			int widthOffset = 0;
-			for (auto&& element : line)
-			{
-				SolidBrush* color = &FontColor;
-				if (TagReplacingMap["sqerror"].size() > 0 && strcmp(element.c_str(), TagReplacingMap["sqerror"].c_str()) == 0)
-					color = &SquawkErrorColor;
-
-				if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
-					color = &RimcasTextColor;
-
-				RectF mRect(0, 0, 0, 0);
-
-				wstring welement = wstring(element.begin(), element.end());
-
-				graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), customFonts[currentFontSize],
-					PointF(Gdiplus::REAL(TagBackgroundRect.left + widthOffset), Gdiplus::REAL(TagBackgroundRect.top + heightOffset)),
-					&Gdiplus::StringFormat(), color);
-
-
-				graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), customFonts[currentFontSize],
-					PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
-
-				CRect ItemRect(TagBackgroundRect.left + widthOffset, TagBackgroundRect.top + heightOffset,
-					TagBackgroundRect.left + widthOffset + (int)mRect.GetRight(), TagBackgroundRect.top + heightOffset + (int)mRect.GetBottom());
-
-				AddScreenObject(TagClickableMap[element], rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()).c_str());
-
-				widthOffset += (int)mRect.GetRight();
-				widthOffset += blankWidth;
-			}
-
-			heightOffset += oneLineHeight;
-		}
-
-
-	}
+	Tag::render(graphics, *this);
 
 #pragma endregion Drawing of the tags
 
@@ -2621,8 +2134,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	Logger::info("END "+ string(__FUNCSIG__));
 
 }
-
-// ReSharper restore CppMsExtAddressOfClassRValue
 
 //---EuroScopePlugInExitCustom-----------------------------------------------
 
