@@ -6,72 +6,67 @@
 
 using namespace EuroScopePlugIn;
 
-void Tag::render(Graphics& graphics, CSMRRadar& radar)
+void Tag::render(Graphics& graphics, CSMRRadar& radar, CRadarTarget& rt, Gdiplus::Color& activeColor)
 {
-	CRadarTarget rt;
-	for (rt = radar.GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid(); rt = radar.GetPlugIn()->RadarTargetSelectNext(rt))
-	{
-		CRadarTargetPositionData rtPos = rt.GetPosition();
-		Point acPosPix = radar.GetPoint(rtPos.GetPosition());
-		int reportedGs = rtPos.GetReportedGS();
+	CRadarTargetPositionData rtPos = rt.GetPosition();
+	Point acPosPix = radar.GetPoint(rtPos.GetPosition());
+	int reportedGs = rtPos.GetReportedGS();
 
-		// No tag for no radar or primary radar
-		if (rt.GetPosition().GetRadarFlags() <= RADAR_POSITION_PRIMARY)
-			continue;
+	// No tag for no radar or primary radar
+	if (rt.GetPosition().GetRadarFlags() <= RADAR_POSITION_PRIMARY)
+		return;
 
-		auto font = radar.customFonts[radar.currentFontSize];
-		Color green(108, 245, 113);
-		Pen linePen(green, 1.0F);
+	auto font = radar.customFonts[radar.currentFontSize];
+	Pen linePen(activeColor, 1.0F);
 
-		auto tagType = getTagType(radar, rt);
+	auto tagType = getTagType(radar, rt);
 
-		// keeps track of flights that the controller has manually released
-		if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
-			continue;
+	// keeps track of flights that the controller has manually released
+	if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
+		return;
 
-		// Getting the tag center/offset
-		auto tagCenterPosition = getTagPosition(radar, rt);
+	// Getting the tag center/offset
+	auto tagCenterPosition = getTagPosition(radar, rt);
 
-		auto tagDataMap = generateTagData(radar, rt);
+	auto tagDataMap = generateTagData(radar, rt);
 
-		// ----- Generating the clickable map -----
-		map<string, int> TagClickableMap;
-		TagClickableMap[tagDataMap["callsign"]] = TAG_CITEM_CALLSIGN;
-		TagClickableMap[tagDataMap["actype"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[tagDataMap["sctype"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[tagDataMap["sqerror"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[tagDataMap["deprwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[tagDataMap["seprwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[tagDataMap["gate"]] = TAG_CITEM_GATE;
-		TagClickableMap[tagDataMap["sate"]] = TAG_CITEM_GATE;
-		TagClickableMap[tagDataMap["flightlevel"]] = TAG_CITEM_NO;
-		TagClickableMap[tagDataMap["gs"]] = TAG_CITEM_NO;
-		TagClickableMap[tagDataMap["vsi"]] = TAG_CITEM_NO;
-		TagClickableMap[tagDataMap["wake"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[tagDataMap["tssr"]] = TAG_CITEM_NO;
-		TagClickableMap[tagDataMap["asid"]] = TagClickableMap[tagDataMap["ssid"]] = TAG_CITEM_SID;
-		TagClickableMap[tagDataMap["systemid"]] = TAG_CITEM_NO;
-		TagClickableMap[tagDataMap["groundstatus"]] = TAG_CITEM_GROUNDSTATUS;
+	// ----- Generating the clickable map -----
+	map<string, int> TagClickableMap;
+	TagClickableMap[tagDataMap["callsign"]] = TAG_CITEM_CALLSIGN;
+	TagClickableMap[tagDataMap["actype"]] = TAG_CITEM_FPBOX;
+	TagClickableMap[tagDataMap["sctype"]] = TAG_CITEM_FPBOX;
+	TagClickableMap[tagDataMap["sqerror"]] = TAG_CITEM_FPBOX;
+	TagClickableMap[tagDataMap["deprwy"]] = TAG_CITEM_RWY;
+	TagClickableMap[tagDataMap["seprwy"]] = TAG_CITEM_RWY;
+	TagClickableMap[tagDataMap["gate"]] = TAG_CITEM_GATE;
+	TagClickableMap[tagDataMap["sate"]] = TAG_CITEM_GATE;
+	TagClickableMap[tagDataMap["flightlevel"]] = TAG_CITEM_NO;
+	TagClickableMap[tagDataMap["gs"]] = TAG_CITEM_NO;
+	TagClickableMap[tagDataMap["vsi"]] = TAG_CITEM_NO;
+	TagClickableMap[tagDataMap["wake"]] = TAG_CITEM_FPBOX;
+	TagClickableMap[tagDataMap["tssr"]] = TAG_CITEM_NO;
+	TagClickableMap[tagDataMap["asid"]] = TagClickableMap[tagDataMap["ssid"]] = TAG_CITEM_SID;
+	TagClickableMap[tagDataMap["systemid"]] = TAG_CITEM_NO;
+	TagClickableMap[tagDataMap["groundstatus"]] = TAG_CITEM_GROUNDSTATUS;
 
 
-		vector<vector<char>> tagText = buildTagText(graphics, radar, tagDataMap, tagType);
+	vector<vector<char>> tagText = buildTagText(graphics, radar, tagDataMap, tagType);
 		
-		auto tagRect = getTagBlockPosition(graphics, *font, tagText, tagCenterPosition);
+	auto tagRect = getTagBlockPosition(graphics, *font, tagText, tagCenterPosition);
 
-		drawTagText(graphics, *font, green, tagRect, tagText);
+	drawTagText(graphics, *font, activeColor, tagRect, tagText);
 
-		if (radar.mouseWithin(tagRect) || radar.IsTagBeingDragged(rt.GetCallsign()))
-		{
-			drawTagBorder(graphics, green, tagRect);
-			radar.RequestRefresh();
-		}
-
-		drawTagLine(graphics, linePen, acPosPix, tagRect);
-
-		// Adding the tag click screen object
-		radar.tagAreas[rt.GetCallsign()] = tagRect;
-		radar.AddScreenObject(DRAWING_TAG, rt.GetCallsign(), tagRect, true, radar.GetBottomLine(rt.GetCallsign()).c_str());
+	if (radar.mouseWithin(tagRect) || radar.IsTagBeingDragged(rt.GetCallsign()))
+	{
+		drawTagBorder(graphics, activeColor, tagRect);
+		radar.RequestRefresh();
 	}
+
+	drawTagLine(graphics, linePen, acPosPix, tagRect);
+
+	// Adding the tag click screen object
+	radar.tagAreas[rt.GetCallsign()] = tagRect;
+	radar.AddScreenObject(DRAWING_TAG, rt.GetCallsign(), tagRect, true, radar.GetBottomLine(rt.GetCallsign()).c_str());
 }
 
 vector<vector<char>> Tag::buildTagText(Graphics& graphics, CSMRRadar& radar, map<string, string> tagDataMap, TagType tagType)
@@ -120,7 +115,7 @@ CRect Tag::getTagBlockPosition(Graphics& graphics, Gdiplus::Font& font, vector<v
 	int tagWidth = numChars * charWidth;
 	int tagHeight = numLines * charHeight;
 
-	return CRect(tagCentre.x - (tagWidth / 2), tagCentre.y - (tagHeight / 2), tagCentre.x + (tagWidth / 2), tagCentre.y + (tagHeight / 2));
+	return CRect(tagCentre.x - (tagWidth / 2), tagCentre.y - (tagHeight / 2) - 4, tagCentre.x + (tagWidth / 2), tagCentre.y + (tagHeight / 2));
 }
 
 map<string, string> Tag::generateTagData(CSMRRadar& radar, CRadarTarget& rt)
@@ -218,7 +213,8 @@ map<string, string> Tag::generateTagData(CSMRRadar& radar, CRadarTarget& rt)
 	}
 
 	// ----- Groundspeed -------
-	string speed = std::to_string(rt.GetPosition().GetReportedGS());
+	string speed = padWithSpaces(3, rt.GetPosition().GetReportedGS());
+
 
 	// ----- Controller ID -------
 	string controller = "";
@@ -298,9 +294,9 @@ POINT Tag::getTagPosition(CSMRRadar &radar, CRadarTarget &rt)
 	return tagCentre;
 }
 
-void Tag::drawTagText(Graphics& graphics, Gdiplus::Font& font,  Color& green, CRect& tagPosition, vector<vector<char>>& tagText)
+void Tag::drawTagText(Graphics& graphics, Gdiplus::Font& font,  Color& activeColor, CRect& tagPosition, vector<vector<char>>& tagText)
 {
-	SolidBrush brush(green);
+	SolidBrush brush(activeColor);
 	
 	auto measure = RectF();
 	graphics.MeasureString(L"A", 1, &font, PointF(), &StringFormat(), &measure);
@@ -320,17 +316,17 @@ void Tag::drawTagText(Graphics& graphics, Gdiplus::Font& font,  Color& green, CR
 	}
 }
 
-void Tag::drawTagBorder(Graphics& graphics, Color& green, CRect tagRect)
+void Tag::drawTagBorder(Graphics& graphics, Color& activeColor, CRect tagRect)
 {
-		Pen pw(green);
-		tagRect.InflateRect(3, 3);
+		Pen pw(activeColor);
+		tagRect.InflateRect(2, 5, 2, 3);
 		graphics.DrawRectangle(&pw, CopyRect(tagRect));
 }
 
-// Drawing the line from the radar target to the tag
+/// Drawing the line from the radar target to the tag
 void Tag::drawTagLine(Graphics &graphics, Pen &pen, Point &acPos, CRect tagBlock)
 {
-	tagBlock.InflateRect(8, 8);
+	tagBlock.InflateRect(6, 9, 6, 7);
 
 	CPoint clipFrom1, clipTo1, clipFrom2, clipTo2;
 

@@ -6,7 +6,7 @@ enum class TagType { Departure, Arrival, Airborne, Uncorrelated, Uncorrelated_C,
 class Tag
 {
 public:
-	void static render(Graphics& graphics, CSMRRadar& radar);
+	void static render(Graphics& graphics, CSMRRadar& radar, CRadarTarget& rt, Gdiplus::Color& activeColor);
 	map<string, string> static generateTagData(CSMRRadar& radar, CRadarTarget& rt);
 	vector<vector<char>> static buildTagText(Graphics& graphics, CSMRRadar& radar, map<string, string> tagDataMap, TagType tagType);
 	CRect static getTagBlockPosition(Graphics& graphics, Gdiplus::Font& font, vector<vector<char>>& tagText, POINT tagCentre);

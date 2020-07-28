@@ -323,6 +323,13 @@ inline static string padWithZeros(int padding, int s)
 	return ss.str();
 };
 
+inline static string padWithSpaces(int padding, int s)
+{
+	stringstream ss;
+	ss << setfill(' ') << setw(padding) << s;
+	return ss.str();
+};
+
 //
 
 const int DRAWING_TAG = 1211;

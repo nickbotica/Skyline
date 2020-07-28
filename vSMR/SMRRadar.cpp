@@ -23,6 +23,8 @@ WNDPROC gSourceProc;
 HWND pluginWindow;
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+Color GetTagColor(EuroScopePlugIn::CRadarTarget& rt);
+
 map<string, string> CSMRRadar::vStripsStands;
 
 map<int, CInsetWindow *> appWindows;
@@ -1366,6 +1368,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 {
+	// Phase:
+	// REFRESH_PHASE_BACK_BITMAP = 0;
+	// REFRESH_PHASE_BEFORE_TAGS = 1;
+	// REFRESH_PHASE_AFTER_TAGS = 2;
+	// REFRESH_PHASE_AFTER_LISTS = 3;
+
 	Logger::info(string(__FUNCSIG__));
 	// Changing the mouse cursor
 	if (initCursor)
@@ -1442,27 +1450,20 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		}
 	}
 
-	Logger::info("Graphics set up");
 	CDC dc;
 	dc.Attach(hDC);
 
 	// Creating the gdi+ graphics
 	Graphics graphics(hDC);
 	graphics.SetPageUnit(Gdiplus::UnitPixel);
-
-	graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-
-
+	graphics.SetSmoothingMode(SmoothingModeNone);
 	graphics.SetTextRenderingHint(TextRenderingHintSingleBitPerPixel);
-
-
 
 	RECT RadarArea = GetRadarArea();
 	RECT ChatArea = GetChatArea();
 	RadarArea.bottom = ChatArea.top;
 
 	AirportPositions.clear();
-
 
 	CSectorElement apt;
 	for (apt = GetPlugIn()->SectorFileElementSelectFirst(SECTOR_ELEMENT_AIRPORT);
@@ -1474,7 +1475,11 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		AirportPositions[string(apt.GetName())] = Pos;
 	}
 
+#pragma region RIMCAS
+
 	RimcasInstance->RunwayAreas.clear();
+
+#pragma endregion
 
 	if (QDMSelectEnabled || QDMenabled)
 	{
@@ -1614,17 +1619,18 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 #pragma endregion
 
+
 	CRadarTarget rt;
+	for (rt = GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid(); rt = GetPlugIn()->RadarTargetSelectNext(rt))
+	{
+		Color tagColor = GetTagColor(rt);
 
-#pragma region Symbols
-	// Drawing the symbols
-	Logger::info("Symbols loop");
+		Symbol::render(graphics, *this, rt, tagColor);
 
-	Symbol::render(&graphics, this);
+		Tag::render(graphics, *this, rt, tagColor);
+	}
 
-
-#pragma endregion Drawing of the symbols
-
+#pragma region RIMCAS
 	TimePopupData.clear();
 	AcOnRunway.clear();
 	ColorAC.clear();
@@ -1632,18 +1638,12 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	RimcasInstance->OnRefreshEnd(this, CurrentConfig->getActiveProfile()["rimcas"]["rimcas_stage_two_speed_threshold"].GetInt());
 
-	graphics.SetSmoothingMode(SmoothingModeDefault);
+#pragma endregion
 
-#pragma region tags
-	// Drawing the Tags
-	Logger::info("Tags loop");
-	Tag::render(graphics, *this);
 
-#pragma endregion Drawing of the tags
+	
 
-	// Releasing the hDC after the drawing
-	graphics.ReleaseHDC(hDC);
-
+#pragma region RIMCAS
 	CBrush BrushGrey(RGB(150, 150, 150));
 	COLORREF oldColor = dc.SetTextColor(RGB(33, 33, 33));
 
@@ -1701,6 +1701,10 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		AddScreenObject(RIMCAS_IAW, it->first.c_str(), CRectTime, true, "");
 
 	}
+
+#pragma endregion
+
+#pragma region ToolbarLists
 
 	Logger::info("Menu bar lists");
 
@@ -1844,6 +1848,10 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		ShowLists["Afterglow"] = false;
 	}
 
+#pragma endregion
+
+#pragma region QRD
+
 	Logger::info("QRD");
 
 	//---------------------------------
@@ -1909,6 +1917,10 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		RequestRefresh();
 	}
 
+#pragma endregion
+
+#pragma region DistanceTools
+
 	// Distance tools here
 	for (auto&& kv : DistanceTools)
 	{
@@ -1958,6 +1970,10 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		dc.SelectObject(oldPen);
 	}
 
+#pragma endregion
+
+#pragma region Toolbar
+
 	//---------------------------------
 	// Drawing the toolbar
 	//---------------------------------
@@ -2003,116 +2019,9 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	dc.SetTextColor(oldTextColor);
 
-	//
-	// Tag deconflicting
-	//
+#pragma endregion
 
-	Logger::info("Tag deconfliction loop");
-
-	for (const auto areas : tagAreas)
-	{
-		if (!CurrentConfig->getActiveProfile()["labels"]["auto_deconfliction"].GetBool())
-			break;
-
-		if (TagsOffsets.find(areas.first) != TagsOffsets.end())
-			continue;
-
-		if (IsTagBeingDragged(areas.first))
-			continue;
-
-		if (RecentlyAutoMovedTags.find(areas.first) != RecentlyAutoMovedTags.end())
-		{
-			double t = (double)clock() - RecentlyAutoMovedTags[areas.first] / ((double)CLOCKS_PER_SEC);
-			if (t >= 0.8) {
-				RecentlyAutoMovedTags.erase(areas.first);
-			} else
-			{
-				continue;
-			}
-		}
-
-		// We need to see wether the rotation will be clockwise or anti-clockwise
-
-		bool isAntiClockwise = false;
-
-		for (const auto area2 : tagAreas)
-		{
-			if (areas.first == area2.first)
-				continue;
-
-			if (IsTagBeingDragged(area2.first))
-				continue;
-
-			CRect h;
-
-			if (h.IntersectRect(tagAreas[areas.first], area2.second))
-			{
-				if (areas.second.left <= area2.second.left)
-				{
-					isAntiClockwise = true;
-				}
-
-				break;
-			}
-		}
-
-		// We then rotate the tags until we did a 360 or there is no more conflicts
-
-		POINT acPosPix = ConvertCoordFromPositionToPixel(GetPlugIn()->RadarTargetSelect(areas.first.c_str()).GetPosition().GetPosition());
-		int lenght = LeaderLineDefaultlenght;
-		if (TagLeaderLineLength.find(areas.first) != TagLeaderLineLength.end())
-			lenght = TagLeaderLineLength[areas.first];
-
-		int width = areas.second.Width();
-		int height = areas.second.Height();
-
-		for (double rotated = 0.0; abs(rotated) <= 360.0;)
-		{
-			// We first rotate the tag
-			double newangle = fmod(TagAngles[areas.first] + rotated, 360.0f);
-
-			POINT TagCenter;
-			TagCenter.x = long(acPosPix.x + float(lenght * cos(DegToRad(newangle))));
-			TagCenter.y = long(acPosPix.y + float(lenght * sin(DegToRad(newangle))));
-
-			CRect NewRectangle(TagCenter.x - (width / 2), TagCenter.y - (height / 2), TagCenter.x + (width / 2), TagCenter.y + (height / 2));
-			NewRectangle.NormalizeRect();
-
-			// Assume there is no conflict, then try again
-
-			bool isTagConflicing = false;
-
-			for (const auto area2 : tagAreas)
-			{
-				if (areas.first == area2.first)
-					continue;
-
-				if (IsTagBeingDragged(area2.first))
-					continue;
-
-				CRect h;
-
-				if (h.IntersectRect(NewRectangle, area2.second))
-				{
-					isTagConflicing = true;
-					break;
-				}
-			}
-
-			if (!isTagConflicing)
-			{
-				TagAngles[areas.first] = fmod(TagAngles[areas.first] + rotated, 360);
-				tagAreas[areas.first] = NewRectangle;
-				RecentlyAutoMovedTags[areas.first] = clock();
-				break;
-			}
-
-			if (isAntiClockwise)
-				rotated -= 22.5f;
-			else
-				rotated += 22.5f;
-		}
-	}
+#pragma region AppWindows
 
 	//
 	// App windows
@@ -2129,10 +2038,37 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		appWindows[appWindowId]->render(hDC, this, &graphics, mouseLocation, DistanceTools);
 	}
 
+#pragma endregion
+
+	graphics.ReleaseHDC(hDC);
 	dc.Detach();
 
 	Logger::info("END "+ string(__FUNCSIG__));
 
+}
+
+Color GetTagColor(CRadarTarget& rt)
+{
+	auto fp = rt.GetCorrelatedFlightPlan();
+	if (fp.IsValid())
+	{
+		int sectorEntry = fp.GetSectorEntryMinutes();
+
+		if (sectorEntry >= 0 && sectorEntry <= 10)
+		{
+			// Green
+			return Color(108, 245, 113);
+		}
+
+		if (sectorEntry > 10 && sectorEntry <= 20)
+		{
+			//Blue
+			return Color(137, 207, 240);
+		}
+
+	}
+	// Default
+	return Color::White;
 }
 
 //---EuroScopePlugInExitCustom-----------------------------------------------
